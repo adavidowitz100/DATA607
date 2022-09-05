@@ -2,29 +2,57 @@
 title: "DATA607 - Assignment 1"
 author: "Avery Davidowitz"
 date: "`r Sys.Date()`"
-output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+## Overview
+
+Five Thirty Eight maintains power ratings for every MLB baseball team over all of MLB history. I subset this data to show the power ratings of only the NL East teams as the 2022 season has unfolded.
+
+The current predictions are available at: <https://projects.fivethirtyeight.com/2022-mlb-predictions/>
+
+Basic overview of data: <https://github.com/fivethirtyeight/data/tree/master/mlb-elo>
+
+More in depth info on rating system can be found at: <https://fivethirtyeight.com/features/how-our-mlb-predictions-work/>
+
+## Import libraries
+
+```{r Import library, message=FALSE}
+library(dplyr)
+library(ggplot2)
 ```
 
-## R Markdown
+## Read in the CSV of data from Github
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r Reading CSV}
+theUrl <- "https://raw.githubusercontent.com/adavidowitz100/DATA607/main/Assignment%201/mlb-elo/mlb_elo_latest.csv"
+mlb_data <- read.table(file=theUrl, header=TRUE, sep=",")
 ```
 
-## Including Plots
+## Clean and Subset Using dplyr
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r clean and subset}
+#Date needs to be formatted correctly
+mlb_data$date <- as.Date(mlb_data$date)
+#Subset teams to NL East
+mlb_data <- select(mlb_data, date, team1, team2, rating1_pre, rating2_pre)
+#convert data frame of games into data frame of teams
+team1_data <- filter(mlb_data, team1 %in% c('NYM', 'ATL', 'PHI', 'FLA', 'WSN'))
+team1_data <- select(team1_data, date, team1, rating1_pre)
+names(team1_data)[names(team1_data)=="team1"] <- "team"
+names(team1_data)[names(team1_data)=="rating1_pre"] <- "rating"
+team2_data <-  filter(mlb_data,team2 %in% c('NYM', 'ATL', 'PHI', 'FLA', 'WSN'))
+team2_data <- select(team2_data, date, team2, rating2_pre)
+names(team2_data)[names(team2_data)=="team2"] <- "team"
+names(team2_data)[names(team2_data)=="rating2_pre"] <- "rating"
+NL_east <- rbind(team1_data, team2_data)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Plot
+
+```{r NL East Ratings Plot}
+NL_east_plot <- ggplot(NL_east, aes(x=date, y=rating))
+NL_east_plot <- NL_east_plot + geom_line(aes(color=factor(team), group=team))
+NL_east_plot <- NL_east_plot + scale_color_discrete(name="Team")
+NL_east_plot <- NL_east_plot + labs(title="2022 Power Rating of NL East Teams", x="Date", y="Rating")
+NL_east_plot
+```
