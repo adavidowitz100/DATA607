@@ -1,0 +1,102 @@
+---
+title: "DATA 607 Project 1"
+author: "Avery Davidowitz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# Introduction
+The overall nature of this project is to wrangle chess tournament data from a poorly formatted table. The data, which is loaded from a text file without standardized delimiters, requires the use of regular expression for extraction. A column of computed average opponent rating is also added to the data set. The tidyverse is used extensively throughout in stringr, dplyr and as well as occasional piping through magrittr. 
+
+# Importing Packages
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+```
+
+# Loading File
+
+Retrieving the raw data from Github for reproducibility.
+```{r }
+txt_data <- read_file("https://raw.githubusercontent.com/adavidowitz100/DATA607/main/Project1/tournamentinfo.txt")
+print(substr(txt_data, 1, 1000))
+```
+
+# Data Discovery and Structuring
+
+Using Regex in Stringr to extract the required data and adding to tidy dataframes. The matching text for the regex patern is commented in-line.
+
+```{r}
+player_name <- unlist(stringr::str_extract_all(txt_data,"[|]\\s+[A-Z]+\\s+[A-Z]+([A-Z]|\\s|[-])*\\s+[|]")) #| GARY HUA                      |
+player_name <- unlist(stringr::str_extract_all(player_name,"[A-Z]+\\s+[A-Z]+([A-Z]|\\s|[-])*[A-Z]+"))             #GARY HUA
+player_name <- as.data.frame(player_name)
+state <- unlist(stringr::str_extract_all(txt_data,"[|]\\n\\s+[A-Z]{2}\\s+[|]")) #|\n   ON |
+state <- unlist(stringr::str_extract_all(state,"[A-Z]{2}")) #ON
+state <- as.data.frame(state)
+point_total <- as.numeric(unlist(stringr::str_extract_all(txt_data,"\\d[.]\\d"))) #6.0
+point_total <- as.data.frame(point_total)
+pre_rating <- unlist(stringr::str_extract_all(txt_data,"R[:]\\s+\\d{3,4}")) #R: 1794
+pre_rating <- as.integer(unlist(stringr::str_extract_all(pre_rating,"\\d{3,4}"))) #1794
+pre_rating <- as.data.frame(pre_rating)
+opponents <- unlist(stringr::str_extract_all(txt_data,"\\d[.]\\d.*[|]\\n\\s+[A-Z]{2}\\s+[|]")) #|W  39|W  21|W  18|W  14|W   7|D  12|D   4|
+opponents <- unlist(stringr::str_remove(opponents, "\\d[.]\\d"))
+opponents <- stringr::str_split(opponents,"[|]")
+for(i in 1:length(opponents)){
+opponents[[i]] <- as.integer(stringr::str_extract_all(opponents[[i]], "\\d{1,2}"))
+}
+opponents_df <- as.data.frame(do.call(rbind, opponents))
+opponents_df <- opponents_df[-c(1,9,10)]
+
+chess_df <- cbind.data.frame(player_name, state, point_total, pre_rating, opponents_df)
+names(chess_df) <- c("Name", "State", "Points", "Pre-Rating", "Opponent 1","Opponent 2","Opponent 3","Opponent 4","Opponent 5","Opponent 6","Opponent 7")
+
+chess_df %>% 
+  head() %>%
+  kableExtra::kbl() %>%
+  kableExtra::kable_styling()
+
+```
+
+# Data Enriching
+
+Computing the average opponents rating, adding it to the dataframe and then sub-setting for the final output.
+
+```{r}
+avg_vector <- character(nrow(player_name))
+for(i in 1:nrow(player_name)){
+  counter = 0
+  total = 0
+  for(j in 5:11){
+    if(!is.na(chess_df[i,j])){
+    counter <- counter + 1
+    total <- total + chess_df[chess_df[i,j],"Pre-Rating"]
+    }
+  }
+  avg_vector[i] <- round(total/counter, digits = 0)
+}
+
+chess_df <- cbind(chess_df, avg_vector)
+
+
+
+csv_df <- dplyr::select(chess_df, Name, State, Points, "Pre-Rating", avg_vector)
+csv_df <- rename(csv_df, "Avg Opponent Rating" = "avg_vector")
+
+csv_df %>% 
+  head() %>%
+  kableExtra::kbl() %>%
+  kableExtra::kable_styling()
+```
+
+
+# Output
+Save the CSV to the working directory.
+
+```{r}
+directory = stringr::str_c(getwd(),"/Project1_Output.csv")
+write.csv(csv_df,directory, row.names = FALSE)
+```
+
+# Conclusion
+Given that the data is now in a widely accessible CSV format, this data can be used easily in further analysis. Perhaps, the overall average opponent ranking can be used to verify the pre-tournament ratings for players. While this data is perfectly usable as is, I would have liked to refactor some of the above code and specifically to include more piping in the stringr regex section.
+
