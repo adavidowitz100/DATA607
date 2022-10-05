@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 
 ## Introduction
-
+This assignment loads, munges and analyses airline flight data. The data is initially messy and tools from the Tidyverse are used to standardize it into a "tidy" format. A plot is then used to highlight trends in the data.
 
 ## Import Libraries
 
@@ -20,8 +20,54 @@ library(tidyverse)
 ```
 
 ## Load Data
-
+Load the data from a CSV file stored on Github for reproducibility.
 ```{r}
-
+theUrl <- "https://raw.githubusercontent.com/adavidowitz100/DATA607/main/Assignment4/Flight_Data.csv"
+flight_data <- read.table(file=theUrl, header=TRUE, sep=",")
+as_tibble(flight_data)
 ```
 
+## Data Munging into Tidy Data
+
+Remove blank rows
+```{r}
+flight_data <- flight_data[rowSums(is.na(flight_data) | flight_data == "") != ncol(flight_data),]
+head(flight_data)
+```
+Rename Columns
+```{r}
+flight_data <- flight_data |> dplyr::rename("Airline" = X, "Status" = X.1)
+head(flight_data)
+```
+Fill missing Airline values
+```{r}
+flight_data[flight_data==""]<-NA
+flight_data <- tidyr::fill(flight_data, Airline, .direction = "down")
+head(flight_data)
+```
+Convert data from wide format to Tidy long format by moving city counts from multiple columns to 2 new city and count name/value columns
+```{r}
+long_flight_data <- tidyr::pivot_longer(flight_data, c(Los.Angeles, Phoenix, San.Diego, San.Fransisco, Seattle), names_to = "City", values_to = "Count")
+head(long_flight_data)
+```
+
+Remove periods from City names
+```{r}
+long_flight_data$City <- sub("\\.", " ", long_flight_data$City)
+head(long_flight_data)
+```
+
+
+## Analysis
+Adding in a column for the percentage of flights with delays for each airline/city observation. This enables a better comparison of performance across the two airlines. A bar plot of the relative delays shows a clear trend.
+```{r}
+long_flight_data_delay <- long_flight_data %>% dplyr::group_by(Airline, City) %>% 
+  dplyr::mutate(Delay_Percent = Count / sum(Count) * 100) %>% 
+  dplyr::filter(Status=="delayed") %>% 
+  dplyr::select(Airline, City, Delay_Percent)
+
+ggplot(long_flight_data_delay, aes(x=City, y=Delay_Percent, fill=Airline)) +
+    geom_bar(stat='identity', position='dodge')
+```
+
+## Conclusion
