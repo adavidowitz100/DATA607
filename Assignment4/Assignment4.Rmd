@@ -47,7 +47,7 @@ head(flight_data)
 ```
 Convert data from wide format to Tidy long format by moving city counts from multiple columns to 2 new city and count name/value columns
 ```{r}
-long_flight_data <- tidyr::pivot_longer(flight_data, c(Los.Angeles, Phoenix, San.Diego, San.Fransisco, Seattle), names_to = "City", values_to = "Count")
+long_flight_data <- tidyr::pivot_longer(flight_data, c(Los.Angeles, Phoenix, San.Diego, San.Francisco, Seattle), names_to = "City", values_to = "Count")
 head(long_flight_data)
 ```
 
@@ -61,9 +61,9 @@ head(long_flight_data)
 ## Analysis
 Adding in a column for the percentage of flights with delays for each airline/city observation. This enables a better comparison of performance across the two airlines. A bar plot of the relative delays shows a clear trend.
 ```{r}
-long_flight_data_delay <- long_flight_data %>% dplyr::group_by(Airline, City) %>% 
-  dplyr::mutate(Delay_Percent = Count / sum(Count) * 100) %>% 
-  dplyr::filter(Status=="delayed") %>% 
+long_flight_data_delay <- long_flight_data |> dplyr::group_by(Airline, City) |> 
+  dplyr::mutate(Delay_Percent = Count / sum(Count) * 100) |> 
+  dplyr::filter(Status=="delayed") |> 
   dplyr::select(Airline, City, Delay_Percent)
 
 ggplot(long_flight_data_delay, aes(x=City, y=Delay_Percent, fill=Airline)) +
@@ -71,3 +71,4 @@ ggplot(long_flight_data_delay, aes(x=City, y=Delay_Percent, fill=Airline)) +
 ```
 
 ## Conclusion
+From examining the plotted ratios of flight delays, AM West has a significantly worse delay performance for the five cities in question. AM West on-time performance lagged behind Alaska Airlines in every city but had a significant gap in San Francisco and Seattle specifically. The analysis is hampered somewhat in scope because the data is an aggregated categorical data point of delayed/on-time. A numerical measure of delay times could yield more interesting results.  
