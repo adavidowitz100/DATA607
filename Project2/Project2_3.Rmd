@@ -1,0 +1,90 @@
+---
+title: "Project 2 - Part 3"
+author: "Avery Davidowitz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Introduction
+My classmate Prinon Mahdi suggested an analysis of messy data from historical World War II era Air Force records. This data was originally a part of a mind blowing effort to manage the Air Force's logistics and procurement reporting through punchcard tabulating machines of the era. Some of that data has been preserved and is available at https://www.ibiblio.org/hyperwar/AAF/StatDigest/aafsd-3.html. The data is in a very wide format and must be tidied in order to analyze the suggested sharpest drops for each reported aircraft type. 
+
+## Import Libraries
+
+```{r}
+library(tidyverse)
+```
+
+
+## Load Data
+Load the data from a CSV file stored on Github for reproducibility.
+```{r}
+theUrl <- "https://raw.githubusercontent.com/adavidowitz100/DATA607/main/Project2/airplane_data.csv"
+airplane_data <- read.table(file=theUrl, header=TRUE, sep=",", na.strings = "", stringsAsFactors = FALSE)
+head(airplane_data)
+```
+
+## Data Munging into Tidy Data
+
+Clean up Column names
+```{r}
+for(i in 1:ncol(airplane_data)){if(!is.na(airplane_data[1,i])){names(airplane_data)[i] <- stringr::str_c(names(airplane_data)[i],airplane_data[1,i], sep = " ")}}
+
+airplane_data <- airplane_data |> dplyr::rename("Year"=Year.or.Month)
+names(airplane_data) <- stringr::str_remove_all(names(airplane_data),"\\. ")
+head(airplane_data)
+```
+
+Remove NA, total and sub-header rows
+```{r}
+airplane_data <- dplyr::filter(airplane_data,!is.na(Year) & Year != "Grand Total" & Year != "Annually")
+head(airplane_data)
+```
+
+Remove non-numeric observational values and recast types to integer. The fact that 1945 was only a partial year is not relevant to the analysis and is therefore not preserved.
+```{r}
+airplane_data <- airplane_data |> dplyr::mutate(Year= stringr::str_sub(Year,1,4))|> 
+  dplyr::mutate_all(funs(stringr::str_replace(.,"-","0"))) |>
+  dplyr::mutate_all(funs(stringr::str_replace(.,",",""))) |>
+  dplyr::mutate_all(funs(as.integer(.)))
+head(airplane_data)
+```
+
+Remove redundant Total column
+```{r}
+airplane_data <- airplane_data |> select(!Total)
+head(airplane_data)
+```
+
+
+Convert data from wide format to Tidy long format by moving airplane type and count from multiple columns to 2 new type and count name/value columns.
+```{r}
+long_airplane_data <- tidyr::pivot_longer(airplane_data, cols =!matches("Year"), names_to = "Type", values_to = "Count")
+head(long_airplane_data)
+```
+
+## Analysis
+Compute the percent decrease for every observation
+```{r}
+long_airplane_data <- long_airplane_data %>%
+  group_by(Type) %>%
+  arrange(Year, .by_group = TRUE) %>%
+  mutate(pct_change = (Count/lag(Count) - 1) * 100)
+head(long_airplane_data)
+```
+
+Select the year for each type with the highest percent change
+```{r}
+max_change <- long_airplane_data %>% 
+             group_by(Type) %>%
+             slice(which.min(pct_change)) %>%
+             arrange(pct_change)
+max_change
+```
+
+## Conclusion
+Given the lead time of up to two years for the production lifecyle of some planes, it makes sense that the single year sharpest percent decline was of trainer airplanes in the last year of the war. It seems reasonable to assume that trainers were lost at a much lower rate compared to other types of aircraft that were operational in combat. The planners would have foreseen the lower projections regardless of when the war would end. It seems logical that the production had the sharpest drop in all but one case in the last year of the war. The unusal percent increase of the VH Bombers calls for additional research to explian why that type was still being ramped up so aggressively at that late stage.
+
