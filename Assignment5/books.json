@@ -1,4 +1,4 @@
-"library":[
+{"library":[
     {"title":"An Introduction to Linear Programming and Game Theory",
      "author":[
         {"firstName":"Paul", "lastName":"Thie"},
@@ -31,3 +31,4 @@
     }
     
   ]
+}
