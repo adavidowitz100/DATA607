@@ -1,0 +1,33 @@
+"library":[
+    {"title":"An Introduction to Linear Programming and Game Theory",
+     "author":[
+        {"firstName":"Paul", "lastName":"Thie"},
+        {"firstName":"Gerard", "lastName":"Keough"}
+        ],
+    "publisher":"Wiley",
+    "edition":"3",
+    "publicationyear":"2008",
+    "isbn13":"9780470232866"
+    },
+    {"title":"Introduction to Mathematical Programming",
+     "author":[
+        {"firstName":"Wayne", "lastName":"Winston"},
+        {"firstName":"Munirpallam", "lastName":"Venkataramanan"}
+        ],
+    "publisher":"Thomson",
+    "edition":"4",
+    "publicationyear":"2003",
+    "isbn13":"9780534359645"
+    },
+    {"title":"Introduction to Operations Research",
+     "author":[
+        {"firstName":"Frederick", "lastName":"Hillier"},
+        {"firstName":"Gerald", "lastName":"Lieberman"}
+        ],
+    "publisher":"McGraw Hill",
+    "edition":"8",
+    "publicationyear":"2004",
+    "isbn10":"0073017795"
+    }
+    
+  ]

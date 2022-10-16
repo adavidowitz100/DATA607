@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<library>
+    <book>
+        <title>An Introduction to Linear Programming and Game Theory</title>
+        <author>
+            <firstname>Paul</firstname>
+            <lastname>Thie</lastname>
+        </author>
+        <author>
+            <firstname>Gerard</firstname>
+            <lastname>Keough</lastname>
+        </author>
+        <edition>3</edition>
+        <publisher>Wiley</publisher>
+        <publicationyear>2008</publicationyear>
+        <isbn13>9780470232866</isbn13>
+    </book>
+    <book>
+        <title>Introduction to Mathematical Programming</title>
+        <author>
+            <firstname>Wayne</firstname>
+            <lastname>Winston</lastname>
+        </author>
+        <author>
+            <firstname>Munirpallam</firstname>
+            <lastname>Venkataramanan</lastname>
+        </author>
+        <edition>4</edition>
+        <publisher>Thomson</publisher>
+        <publicationyear>2003</publicationyear>
+        <isbn13>9780534359645</isbn13>
+    </book>
+    <book>
+        <title>Introduction to Operations Research</title>
+        <author>
+            <firstname>Frederick</firstname>
+            <lastname>Hillier</lastname>
+        </author>
+        <author>
+            <firstname>Gerald</firstname>
+            <lastname>Lieberman </lastname>
+        </author>
+        <edition>8</edition>
+        <publisher>McGraw Hill</publisher>
+        <publicationyear>2004</publicationyear>
+        <isbn10>0073017795</isbn10>
+    </book>
+</library>
