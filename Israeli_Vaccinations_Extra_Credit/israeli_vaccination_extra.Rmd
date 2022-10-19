@@ -1,0 +1,66 @@
+---
+title: "Israeli Vaccination Data Analysis"
+author: "Avery Davidowitz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+## Introduction
+Another example of the Simpson's paradox is apparent from analyzing the data from Israeli Covid-19 Vaccinations. When examining case counts it seems puzzling that the fully vaccinated have more cases in the over 50 population. Factoring rates per 100k of infections show the true efficacy of the vaccines.
+
+## Import Libraries
+
+```{r}
+library(tidyverse)
+```
+
+## Import Data
+Import the data from a CSV file stored on Github for reproducibility
+```{r}
+raw_csv <- readr::read_csv("https://raw.githubusercontent.com/adavidowitz100/DATA607/main/Israeli_Vaccinations_Extra_Credit/israeli_vaccination_data_analysis_start.csv")
+print(raw_csv)
+```
+
+## Data Munging
+Change the data from a wide contingency style table to a long tidy format
+```{r}
+vaxdf <- raw_csv[rowSums(is.na(raw_csv) | raw_csv == "") != ncol(raw_csv),] #remove blank rows
+vaxdf <- vaxdf |> dplyr::filter(!is.na(Age)) |> #remove sub-headers and percentage rows
+                  dplyr::rename("age" = 1, "unvax_pop" = 2, "vax_pop" = 3, "unvax_count" = 4, "vax_count" = 5, "efficacy" = 6) |> #rename columns
+                  tidyr::pivot_longer(c("unvax_pop","vax_pop"),names_to = "status", values_to = "population") |> #combine pop
+                  tidyr::pivot_longer(c("unvax_count","vax_count"),names_to = "status_count", values_to = "case_count") |> #combine case counts
+                  dplyr::filter(stringr::str_sub(status,1,3) == stringr::str_sub(status_count,1,3)) |> #remove non-matching pop/case rows
+                  dplyr::select(!status_count & !efficacy) #remove extra status column
+vaxdf$status <- sub("\\_pop", "", vaxdf$status)
+vaxdf$population <- as.integer(stringr::str_remove_all(vaxdf$population,",")) #remove , from pop and retype to int
+vaxdf$case_count <- as.integer(vaxdf$case_count) #retype to int
+
+vaxdf <- mutate(vaxdf, case_per_100k=case_count*100000/population) #add per 100k rate
+```
+
+## Analysis
+```{r}
+#calculate efficacy by age
+vax_eff_df <- distinct(select(vaxdf,age)) |> left_join(dplyr::select(dplyr::filter(vaxdf,status == "vax"),age,case_per_100k), by="age") |> 
+            rename(vax_case_rate = case_per_100k) |> 
+            left_join(dplyr::select(dplyr::filter(vaxdf,status == "unvax"),age,case_per_100k), by="age") |> 
+            rename(unvax_case_rate = case_per_100k) |>
+            mutate(efficacy = 1-(vax_case_rate/unvax_case_rate))
+                                           
+#calculate efficacy for all
+vax_eff_all_df <- vaxdf |> dplyr::select(status,population,case_count) |> dplyr::group_by(status) |>    dplyr::summarise(population=sum(population),case_count=sum(case_count))
+vax_eff_all_df <- mutate(vax_eff_all_df, case_per_100k=case_count*100000/population) #add per 100k rate for all ages
+vaxdf
+vax_eff_df
+total_eff <- as.numeric(1 -((dplyr::select(dplyr::filter(vax_eff_all_df,status == "vax"),case_per_100k))/(dplyr::select(dplyr::filter(vax_eff_all_df,status == "unvax"),case_per_100k))))
+total_eff
+```
+
+
+## Conclusion
+As you can see from the data the overall efficacy was high in each age group. The overall efficacy of 67% which is lower than the stratified efficacy is explained by the confounders introduced by age. It appears that Simpson's paradox is induced because the over 50 population had both higher vaccination rates as well as more overall serious poor health. In both cases these are expected and does not diminish the fact that each demographic was well protected by the vaccine shown by the considerably smaller rates of serious illness compared to the same age groups unvaccinated rate of serious illness.
