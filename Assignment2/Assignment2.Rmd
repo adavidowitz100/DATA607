@@ -1,0 +1,161 @@
+---
+title: "607_Assignment2"
+author: "Avery Davidowitz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Intro
+This document outlines the process of setting up a movie rating data collection system. First a local MySQL database is used to create tables, add records and query records. The tables currently represent a small collection of data of movie ratings. The data collected from CSV files is then loaded into the database to later allow further analysis as more users and movies are added to the surveys. All queries are reproducible if a local MySQL database titled "MOVIEDB" with appropriate credentials is created prior to running the below code.
+
+
+## Import libraries and 
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(DBI)
+```
+
+## Establish database connection
+```{r}
+user_name <- .rs.askForPassword("Enter the Database user name")
+password <- .rs.askForPassword("Enter the Database password")
+con <- dbConnect(odbc::odbc(), 
+                 .connection_string = "Driver={MySQL ODBC 8.0 Unicode Driver};", timeout = 10,
+                 Server = "localhost", Database = "MOVIEDB", UID = user_name, PWD = password)
+```
+
+
+## Create SQL Tables
+Here I create all of the needed tables to add movies, users and ratings to the MOVIEDB database.
+```{r}
+
+rs <- odbc::dbSendStatement(con, "CREATE TABLE `MOVIEDB`.`MOVIE` (
+    `ID` INT NOT NULL AUTO_INCREMENT,
+    `TITLE` VARCHAR(45) NOT NULL,
+    `GENRE` VARCHAR(45) NULL,
+    `RELEASE_YEAR` INT NULL,
+    `IMDB_RATING` DECIMAL(3,1),
+    PRIMARY KEY (`ID`));")
+dbClearResult(rs)
+
+rs <- odbc::dbSendStatement(con,"CREATE TABLE `MOVIEDB`.`USER` (
+     `ID` INT NOT NULL AUTO_INCREMENT,
+     `NAME` VARCHAR(45) NOT NULL,
+     `EMAIL` VARCHAR(45) NOT NULL,
+     UNIQUE (`EMAIL`),
+     PRIMARY KEY (`ID`));")
+dbClearResult(rs)
+
+rs <- odbc::dbSendStatement(con, "CREATE TABLE `moviedb`.`RATING_TYPE` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `RATING_TYPE` VARCHAR(45) NOT NULL,
+  PRIMARY KEY (`ID`));")
+dbClearResult(rs)
+
+rs <- odbc::dbSendStatement(con, "CREATE TABLE `MOVIEDB`.`RATING` (
+     `ID` INT NOT NULL AUTO_INCREMENT,
+     `USER_ID` INT NOT NULL,
+     `MOVIE_ID` INT NOT NULL,
+     `RATING` INT NOT NULL,
+     `RATING_TYPE_ID` INT NOT NULL,
+     PRIMARY KEY (`ID`),
+     INDEX `id_idx` (`MOVIE_ID` ASC) VISIBLE,
+     INDEX `id_idx1` (`USER_ID` ASC) VISIBLE,
+     INDEX `id_idx2` (`RATING_TYPE_ID` ASC) VISIBLE,
+     CONSTRAINT `MOVIE_RATING_ID`
+       FOREIGN KEY (`MOVIE_ID`)
+       REFERENCES `MOVIEDB`.`MOVIE` (`ID`)
+       ON DELETE CASCADE
+       ON UPDATE CASCADE,
+     CONSTRAINT `USER_RATING_ID`
+       FOREIGN KEY (`USER_ID`)
+       REFERENCES `MOVIEDB`.`USER` (`ID`)
+       ON DELETE CASCADE
+       ON UPDATE CASCADE,
+     CONSTRAINT `RATING_TYPE_RATING_ID`
+       FOREIGN KEY (`RATING_TYPE_ID`)
+       REFERENCES `MOVIEDB`.`RATING_TYPE` (`ID`)
+       ON DELETE CASCADE
+       ON UPDATE CASCADE);")
+dbClearResult(rs)
+
+# Seed rating types
+rs <- odbc::dbSendStatement(con, "INSERT IGNORE INTO RATING_TYPE (ID, RATING_TYPE) VALUES (1, 'User'),(2, 'Global Baseline')")
+dbClearResult(rs)
+
+```
+
+## Adding Movies
+This data was separately compiled from IMDB before sending the users movies to rate.
+
+```{r}
+theUrl <- "https://raw.githubusercontent.com/adavidowitz100/DATA607/main/Assignment2/Movies.csv"
+movie_data <- read.table(file=theUrl, header=TRUE, sep=",")
+head(movie_data)
+odbc::dbWriteTable(con, name="MOVIE", value=distinct(movie_data), append=TRUE, row.names=FALSE)
+```
+
+
+## Adding Users and Ratings 
+A sheet was sent to collect user ratings containing 5 movie titles to 5 people. The results will be loaded into a data frame and then loaded into the MOVIEDB.
+
+```{r}
+theUrl <- "https://raw.githubusercontent.com/adavidowitz100/DATA607/main/Assignment2/ratings.csv"
+rating_data <- read.table(file=theUrl, header=TRUE, sep=",")
+
+user_data <- distinct(rating_data[, c(1,2)])
+insert_user <- odbc::dbSendStatement(con, "INSERT IGNORE INTO USER (NAME, EMAIL) VALUES (?, ?)")
+dbBind(insert_user, c(user_data["Name"], user_data["Email"]))
+dbClearResult(insert_user)
+
+#Fetch sql auto generated foreign key IDs for ratings insert
+user_id_sql <- odbc::dbGetQuery(con,
+  "SELECT Email, ID as User_id FROM USER WHERE EMAIL = ?",
+  params = user_data["Email"])
+movie_id_sql <- odbc::dbGetQuery(con,
+  "SELECT Title, ID as Movie_id FROM MOVIE WHERE TITLE = ?",
+  params = movie_data["Title"])
+rating_data_sql <- rating_data %>%
+  left_join(movie_id_sql, by = c("Title" = "Title")) %>%
+  left_join(user_id_sql, by = c("Email" = "Email"))  %>%
+  select(Rating, Movie_id, User_id) %>%
+  filter(!is.na(Rating))
+
+insert_rating <- odbc::dbSendStatement(con, "INSERT IGNORE INTO RATING (RATING, MOVIE_ID, USER_ID, RATING_TYPE_ID) VALUES (?, ?, ?, 1)")
+dbBind(insert_rating, c(rating_data_sql["Rating"], rating_data_sql["Movie_id"], rating_data_sql["User_id"]))
+dbClearResult(insert_rating)
+
+```
+## Computing new recommendations for users
+
+```{r}
+avg_movie_rating <- odbc::dbGetQuery(con,
+  "SELECT MOVIE_ID, TITLE, AVG(RATING) AS MOVIE_AVG, (SELECT AVG(RATING) FROM RATING) AS ALL_MOVIE_AVG, AVG(RATING) - (SELECT AVG(RATING) FROM RATING) AS MOVIE_DIFF FROM moviedb.RATING LEFT JOIN MOVIE ON RATING.MOVIE_ID = MOVIE.ID
+WHERE RATING_TYPE_ID = 1
+GROUP BY MOVIE_ID;")
+print(avg_movie_rating)
+
+avg_user_rating <- odbc::dbGetQuery(con, "SELECT USER_ID, NAME, AVG(RATING) AS USER_AVG, (SELECT AVG(RATING) FROM RATING) AS ALL_MOVIE_AVG, AVG(RATING) - (SELECT AVG(RATING) FROM RATING) AS USER_DIFF FROM moviedb.RATING LEFT JOIN USER ON RATING.USER_ID = USER.ID
+WHERE RATING_TYPE_ID = 1
+GROUP BY USER_ID
+HAVING COUNT(USER_ID) > 1;")
+print(avg_user_rating)
+
+#global_rating <- odbc::dbGetQuery(con, "SELECT MOVIE.ID AS MOVIE_ID, USER.ID AS USER_ID FROM MOVIE CROSS JOIN USER")
+#global_rating$Rating <- 
+
+insert_global_rating <- odbc::dbSendStatement(con, "INSERT IGNORE INTO RATING (RATING, MOVIE_ID, USER_ID, RATING_TYPE_ID) VALUES (?, ?, ?, 2)")
+dbBind(insert_global_rating, c(global_rating["Rating"], global_rating["Movie_id"], global_rating["User_id"]))
+dbClearResult(insert_global_rating)
+
+```
+
+
+## Good Citizen
+```{r}
+dbDisconnect(con)
+```
+
+
+## Conclusion
+
