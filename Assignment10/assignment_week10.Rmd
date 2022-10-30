@@ -1,0 +1,63 @@
+---
+title: "Data 607 - Assignment Week 10"
+author: "Avery Davidowitz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+Sys.setenv(MY_API_key='TNKgvys9zTq8TAzA1JiuQDRjnsOg1rHn')
+```
+
+## Intro
+I will demonstrate a connection to the New York Times best selling books list and then create 3 dataframes with the results for the current list.
+
+## Import Libraries
+```{r}
+library(httr)
+library(jsonlite)
+library(tidyverse)
+```
+
+## HTTR API Call
+```{r}
+r <- GET(stringr::str_c('https://api.nytimes.com/svc/books/v3/lists/current/hardcover-fiction.json?api-key=',Sys.getenv("MY_API_key")))
+http_status(r)$message
+stop_for_status(r)
+```
+
+## Parse Message Body
+```{r}
+# Extract JSON to df with jsonlite package
+json_data <- httr::content(r, "text")
+df <- jsonlite::fromJSON(json_data, flatten = TRUE)
+df <- df$results$books
+head(df)
+
+# Moving nested dataframe of buying options to new dataframe using primary_isbn10 as a key
+buy_df <- df |> dplyr::select(primary_isbn10,buy_links) |>
+          tidyr::unnest_longer(buy_links) |>
+          mutate(seller = buy_links$name, url = buy_links$url) |>
+          dplyr::select(primary_isbn10, seller, url)
+head(buy_df)
+df <- df |> select(-c(buy_links))
+
+# Moving nested dataframe of alt ISBNs to new dataframe using primary_isbn10 as a key
+isbn10_df <- df |> dplyr::select(primary_isbn10,isbns) |>
+          tidyr::unnest_longer(isbns) |>
+          dplyr::mutate(alt_isbn10 = isbns$isbn10) |>
+          dplyr::select(primary_isbn10,alt_isbn10) |>
+          dplyr::filter(!is.na(alt_isbn10) & alt_isbn10 != "")
+isbn13_df <- df |> dplyr::select(primary_isbn10,isbns) |>
+          tidyr::unnest_longer(isbns) |>
+          dplyr::mutate(alt_isbn13 = isbns$isbn13) |>
+          dplyr::select(primary_isbn10, alt_isbn13) |>
+          dplyr::filter(!is.na(alt_isbn13) & alt_isbn13 != "")
+head(isbn10_df)
+head(isbn13_df)
+df <- df |> select(-c(isbns))
+head(df)
+```
+## Conclusion
+Since the API returns a JSON document with multiple uneven depths, it is unnecessarily messy to extract all data into one dataframe. I see no advantages of keeping 3 1-many fields in a long tidy dataframe with duplication of data across 24 other fields. As long as the New York Times consistently uses the same ISBN as the primary and my dataframe key would be consistent, this code could be run regularly to extract meaningful data on the best sellers list. Fully blank columns were left in the main book dataframe due to uncertainty over deprecation. The dataframes could also now easily be loaded into a database for long term analysis.
