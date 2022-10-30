@@ -21,6 +21,7 @@ library(tidyverse)
 ```
 
 ## HTTR API Call
+Must have already signed up for NYT API key.
 ```{r}
 r <- GET(stringr::str_c('https://api.nytimes.com/svc/books/v3/lists/current/hardcover-fiction.json?api-key=',Sys.getenv("MY_API_key")))
 http_status(r)$message
