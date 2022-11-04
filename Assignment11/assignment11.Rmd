@@ -1,0 +1,77 @@
+---
+title: "Data 607 - W11 Assignment"
+author: "Avery Davidowitz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE)
+```
+
+## Introduction
+Using sentiment analysis we can determine the underlying meaning of text. I will compare two different sentiment dictionaries and how they compare when analyzing Walden by Henry David Thoreau.
+
+## Import Libraries
+
+```{r}
+library(tidytext)
+library(tidyverse)
+library(syuzhet)
+library(magrittr)
+```
+
+## Data Wrangling
+```{r}
+# read in txt file
+walden_txt <- readr::read_file('https://raw.githubusercontent.com/adavidowitz100/DATA607/main/Assignment11/walden.txt')
+# clean text
+word_df <- walden_txt |> data.frame() |>
+              tidytext::unnest_tokens(word, walden_txt) |> # unnest tokens
+              dplyr::mutate(word_num= row_number()) #add word number index field
+word_df <- word_df |> dplyr::filter(word_num > min(dplyr::select(dplyr::filter(word_df, word == "contents"),word_num)))|> # filter metadata
+                      dplyr::mutate(word_num = word_num - 146) # reset word index to begin at 1
+# remove leading and trailing underscores from encoding 
+word_df$word <- word_df$word |> stringr::str_replace_all(c("^\\_" = "", "\\_$" = ""))
+# remove stop words
+word_df <- word_df |> dplyr::anti_join(stop_words)
+```
+
+## Sentiment Analysis
+```{r}
+# add sentiment score
+word_sent_AFINN <- word_df |> dplyr::inner_join(tidytext::get_sentiments("afinn")) |>
+               dplyr::mutate(method = "AFINN")
+word_sent_syuzhet <- word_df |> dplyr::inner_join(syuzhet::get_sentiment_dictionary(dictionary = "syuzhet", language = "english")) |>
+               dplyr::mutate(method = "syuzhet")
+word_sent <- rbind(word_sent_AFINN, word_sent_syuzhet)
+
+# most impact on overall sentiment by word
+sent_total_AFINN <- word_sent |> dplyr::filter(method=="AFINN") %$% sum(abs(value))
+word_sent_tot_AFINN <- word_sent |> dplyr::filter(method=="AFINN") |>
+                  dplyr::group_by(word, method) |>
+                  dplyr::summarise(sum = sum(abs(value))) |>
+                  dplyr::filter(sum > (sent_total_AFINN/200))
+sent_impact_AFINN_plt <- word_sent_tot_AFINN |> ggplot(aes(x=reorder(word, sum), y=sum/sent_total_AFINN)) +
+                  geom_col() +
+                  labs(title = "Most Impactful Words in Walden", x="Word", y="Total Percentage Sentiment Added - AFINN") +
+                  coord_flip()
+
+sent_total_syuzhet <- word_sent |> dplyr::filter(method=="syuzhet") %$% sum(abs(value))
+word_sent_tot_syuzhet <- word_sent |> dplyr::filter(method=="syuzhet") |>
+                  dplyr::group_by(word, method) |>
+                  dplyr::summarise(sum = sum(abs(value))) |>
+                  dplyr::filter(sum > sent_total_syuzhet/350)
+sent_impact_syuzhet_plt <- word_sent_tot_syuzhet |> ggplot(aes(x=reorder(word, sum), y=sum/sent_total_syuzhet)) +
+                  geom_col() +
+                  labs(title = "Most Impactful Words in Walden", x="Word", y="Total Percentage Sentiment Added - syuzhet") +
+                  coord_flip()
+
+sent_impact_AFINN_plt
+sent_impact_syuzhet_plt
+```
+
+## Conclusion
+As we can see from the comparison of the most impactful words in Walden, the choice of sentiment dictionary can change the analysis of texts. While "true", "poor" and "love", both have top 5 spots on both lists, the fact the words like "slavery" and "government appear on one but not the other appears to be something significant. 
+
+
