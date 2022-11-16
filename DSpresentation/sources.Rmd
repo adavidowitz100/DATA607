@@ -14,4 +14,5 @@ https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor.html
 https://www.tensorflow.org/tfx/data_validation/get_started
 https://towardsdatascience.com/dont-let-your-model-s-quality-drift-away-53d2f7899c09
 https://www.analyticsvidhya.com/blog/2021/10/mlops-and-the-importance-of-data-drift-detection/
+https://www.youtube.com/watch?v=J9T0X9Jxl_w
 
