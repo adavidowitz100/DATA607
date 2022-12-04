@@ -7,7 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-Sys.setenv(MY_API_key='TNKgvys9zTq8TAzA1JiuQDRjnsOg1rHn')
 ```
 
 ## Intro
