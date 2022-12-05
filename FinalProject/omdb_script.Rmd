@@ -37,7 +37,7 @@ con <- dbConnect(RMySQL::MySQL(),
 
 ## Query
 ```{r}
-movies <- dbGetQuery(con, "SELECT * FROM MOVIE WHERE rated is null LIMIT 50")
+movies <- dbGetQuery(con, "SELECT * FROM MOVIE WHERE rated is null LIMIT 2")
 ```
 
 
@@ -66,12 +66,12 @@ for (row in 1:nrow(movies)) {movie <- movies[row,]
         actor$name <- stringr::str_replace_all(actor$name,"[\'\"]","")
         
         for (act in 1:nrow(actor)){
-          actorid_db <- odbc::dbGetQuery(con, paste0("SELECT actorid FROM moviedb.ACTOR WHERE name =           '",actor$name[act],"'")) 
+          actorid_db <- odbc::dbGetQuery(con, glue_sql("SELECT actorid FROM moviedb.ACTOR WHERE name = {actor$name[act]}", .con=con))
           if (nrow(actorid_db) == 0){
-            DBI::dbWriteTable(con, "ACTOR", data.frame(name=actor$name[act]), append = TRUE, row.names = FALSE)
-            actorid_db <- odbc::dbGetQuery(con, paste0("SELECT actorid FROM moviedb.ACTOR WHERE name =           '",actor$name[act],"'"))
+            DBI::dbSendStatement(con, glue_sql("INSERT INTO ACTOR (name) VALUES ({actor$name[act]})", .con=con))
+            actorid_db <- odbc::dbGetQuery(con, glue_sql("SELECT actorid FROM moviedb.ACTOR WHERE name = {actor$name[act]}", .con=con))
           }
-            DBI::dbWriteTable(con, "MOVIE_ACTOR", data.frame(movieid=movieid, actorid=actorid_db), append = TRUE, row.names = FALSE)
+            DBI::dbSendStatement(con, glue_sql("INSERT INTO MOVIE_ACTOR (movieid, actorid) VALUES ({movieid},{actorid_db})", .con=con))
         }
         
          # load directors into db
@@ -84,12 +84,12 @@ for (row in 1:nrow(movies)) {movie <- movies[row,]
         director$director <- stringr::str_replace_all(director$director,"[\'\"]","")
         
         for (direct in 1:nrow(director)){
-         directorid_db <- odbc::dbGetQuery(con, paste0("SELECT directorid FROM moviedb.DIRECTOR WHERE director =           '",director$director[direct],"'")) 
+         directorid_db <- odbc::dbGetQuery(con, glue_sql("SELECT directorid FROM moviedb.DIRECTOR WHERE director =           {director$director[direct]}", .con = con))
           if (nrow(directorid_db) == 0){
-            DBI::dbWriteTable(con, "DIRECTOR", data.frame(director=director$director[direct]), append = TRUE, row.names = FALSE)
-            directorid_db <- odbc::dbGetQuery(con, paste0("SELECT directorid FROM moviedb.DIRECTOR WHERE director =           '",director$director[direct],"'")) 
+            DBI::dbSendStatement(con, glue_sql("INSERT INTO DIRECTOR (director) VALUES ({director$director[direct]})", .con=con))
+            directorid_db <- odbc::dbGetQuery(con, glue_sql("SELECT directorid FROM moviedb.DIRECTOR WHERE director =           {director$director[direct]}", .con = con)) 
           }
-            DBI::dbWriteTable(con, "MOVIE_DIRECTOR", data.frame(movieid=movieid, directorid=directorid_db), append = TRUE, row.names = FALSE)
+            DBI::dbSendStatement(con, glue_sql("INSERT INTO MOVIE_DIRECTOR (movieid, directorid) VALUES ({movieid},{directorid_db})", .con=con))
         }
         
                  # load languages into db
@@ -102,15 +102,15 @@ for (row in 1:nrow(movies)) {movie <- movies[row,]
         language$language <- stringr::str_replace_all(language$language,"[\'\"]","")
         
         for (lang in 1:nrow(language)){
-         languageid_db <- odbc::dbGetQuery(con, paste0("SELECT languageid FROM moviedb.LANGUAGE WHERE language =           '",language$language[lang],"'")) 
+         languageid_db <- odbc::dbGetQuery(con, glue_sql("SELECT languageid FROM moviedb.LANGUAGE WHERE language =           {language$language[lang]}", .con = con)) 
           if (nrow(languageid_db) == 0){
-            DBI::dbWriteTable(con, "LANGUAGE", data.frame(language=language$language[lang]), append = TRUE, row.names = FALSE)
-            languageid_db <- odbc::dbGetQuery(con, paste0("SELECT languageid FROM moviedb.LANGUAGE WHERE language =           '",language$language[lang],"'"))
+            DBI::dbSendStatement(con, glue_sql("INSERT INTO LANGUAGE (language) VALUES ({language$language[lang]})", .con=con))
+            languageid_db <- odbc::dbGetQuery(con, glue_sql("SELECT languageid FROM moviedb.LANGUAGE WHERE language =           {language$language[lang]}", .con = con))
           }
-            DBI::dbWriteTable(con, "MOVIE_LANGUAGE", data.frame(movieid=movieid, languageid=languageid_db), append = TRUE, row.names = FALSE)
+            DBI::dbSendStatement(con, glue_sql("INSERT INTO MOVIE_LANGUAGE (movieid, languageid) VALUES ({movieid},{languageid_db})", .con=con))
         }
     }
-    print(paste("Movie titled",movie["title"], "loaded successfully"))
+    print(paste(row,"of", nrow(movies), "Movie titled", movie["title"], "loaded successfully"))
 }    
 ```
 
