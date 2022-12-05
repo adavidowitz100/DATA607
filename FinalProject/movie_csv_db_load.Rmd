@@ -8,12 +8,14 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 setwd("C:\\CUNY_SPS\\DATA607\\DATA607\\FinalProject")
+sys.source("C:\\CUNY_SPS\\DATA607\\env_var\\final_project_env.R", envir = knitr::knit_global())
 ```
 
 ## Import Libraries
 ```{r}
 library(tidyverse)
 library(DBI)
+library(odbc)
 ```
 
 
@@ -56,7 +58,8 @@ movie_genre_df <- movie_genre_df |> dplyr::rename(genre = genres) |>
             dplyr::filter(genre != "(no genres listed)")
 
 genre_df <- dplyr::distinct(movie_genre_df, genre) |>
-            dplyr::mutate(genreid = row_number())
+            dplyr::mutate(genreid = row_number()) |>
+            dplyr::relocate(genreid, .before = "genre")
 
 movie_genre_df <- movie_genre_df |> dplyr::inner_join(genre_df, by="genre") |>
                   dplyr::select(-genre)
@@ -74,15 +77,13 @@ rating_df$timestamp = as.POSIXct(rating_df$timestamp, origin = "1970-01-01")
 You must have RMySQL package installed.
 
 ```{r}
-user_name <- .rs.askForPassword("Enter the Database user name")
-password <- .rs.askForPassword("Enter the Database password")
 #Establish connection to DB
 con <- dbConnect(RMySQL::MySQL(), 
                  dbname = "moviedb", 
-                 host = "moviedb.curbda2zqfoh.us-east-1.rds.amazonaws.com", 
+                 host = D607_FINAL_ENV$AWS_RDS_HOST, 
                  port = 3306,
-                 user = user_name,
-                 password = password)
+                 user = D607_FINAL_ENV$AWS_RDS_USER_NAME,
+                 password = D607_FINAL_ENV$AWS_RDS_PW)
 ```
 
 ## Load DB Data
