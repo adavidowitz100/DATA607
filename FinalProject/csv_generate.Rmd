@@ -1,0 +1,78 @@
+---
+title: "Data607 - Final Project - S3 Datasets"
+author: "Avery Davidowitz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:\\CUNY_SPS\\DATA607\\DATA607\\FinalProject")
+sys.source("C:\\CUNY_SPS\\DATA607\\env_var\\final_project_env.R", envir = knitr::knit_global())
+```
+
+## Import Libraries
+
+```{r}
+library(tidyverse)
+library(DBI)
+library(odbc)
+```
+
+
+## Connect to Database
+
+You must have RMySQL package installed.
+
+```{r}
+#Establish connection to DB
+con <- dbConnect(RMySQL::MySQL(), 
+                 dbname = "moviedb", 
+                 host = D607_FINAL_ENV$AWS_RDS_HOST, 
+                 port = 3306,
+                 user = D607_FINAL_ENV$AWS_RDS_USER_NAME,
+                 password = D607_FINAL_ENV$AWS_RDS_PW)
+```
+
+## Query Data
+
+```{r}
+movies <- dbGetQuery(con, "SELECT movieid, year, rated FROM MOVIE")
+ratings <- dbGetQuery(con, "SELECT userid, movieid, rating, timestamp FROM RATING")
+actors <- dbGetQuery(con, "SELECT movieid, actorid FROM moviedb.MOVIE_ACTOR")
+directors <- dbGetQuery(con, "SELECT movieid, directorid FROM moviedb.MOVIE_DIRECTOR")
+genres <- dbGetQuery(con, "SELECT movieid, genreid FROM moviedb.MOVIE_GENRE")
+languages <- dbGetQuery(con, "SELECT movieid, languageid FROM moviedb.MOVIE_LANGUAGE")
+```
+
+## Write CSVs
+
+```{r}
+# Interactions CSV 
+# Required fields USER_ID (string), ITEM_ID (string), TIMESTAMP (long), EVENT_TYPE (string and depending # on use case, Watch and Click event types)
+ratings$timestamp <- as.numeric(as.POSIXct(ratings$timestamp))
+names(ratings) <- c("USER_ID", "ITEM_ID", "EVENT_VALUE", "TIMESTAMP")
+ratings <- dplyr::mutate(ratings, EVENT_TYPE = "Watch")
+readr::write_csv(ratings, paste0(getwd(), "\\interactions.csv"))
+```
+
+```{r}
+# Items CSV
+# For fields with multiple values, including categorical metadata and impressions data, use the data type string and separate each value using the vertical bar, '|', character.
+actors <- actors |> group_by(movieid) |>
+                  summarize(ACTOR = str_c(actorid, collapse = "|"))
+directors <- directors |> group_by(movieid) |>
+                  summarize(DIRECTOR = str_c(directorid, collapse = "|"))
+genres <- genres |> group_by(movieid) |>
+                  summarize(GENRES = str_c(genreid, collapse = "|"))
+languages <- languages |> group_by(movieid) |>
+                  summarize(LANGUAGE = str_c(languageid, collapse = "|"))
+movies <- movies |> left_join(actors, by="movieid") |>
+                    left_join(directors, by="movieid") |>
+                    left_join(genres, by="movieid") |>
+                    left_join(languages, by="movieid") |>
+                    mutate(CREATION_TIMESTAMP = NULL) |>
+                    rename(ITEM_ID = "movieid", YEAR="year", RATED="rated")
+readr::write_csv(movies, paste0(getwd(), "\\items.csv"))
+```
+
