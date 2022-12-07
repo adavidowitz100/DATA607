@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 setwd("C:\\CUNY_SPS\\DATA607\\DATA607\\FinalProject")
 sys.source("C:\\CUNY_SPS\\DATA607\\env_var\\final_project_env.R", envir = knitr::knit_global())
 ```
@@ -71,6 +71,17 @@ movie_df <- dplyr::select(movie_df, -c(genres, rating_count))
 rating_df <- rating_df |> dplyr::semi_join(movie_df, by="movieid")
 rating_df$timestamp = as.POSIXct(rating_df$timestamp, origin = "1970-01-01")
 ```
+
+## Summerize Interaction Data
+Showing the thousands of movies that were excluded for having low user rating counts.
+
+```{r}
+rating_count_bymovie |> summarise(median = median(rating_count), average= mean(rating_count), count = n())
+
+rating_count_low <- rating_count_bymovie |> dplyr::filter(rating_count <10)
+ggplot(data = rating_count_low, aes(x=rating_count)) + geom_histogram()
+```
+
 
 ## Database Connection
 

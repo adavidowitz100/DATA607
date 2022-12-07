@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 sys.source("C:\\CUNY_SPS\\DATA607\\env_var\\final_project_env.R", envir = knitr::knit_global())
 ```
 
@@ -17,7 +17,6 @@ library(httr)
 library(jsonlite)
 library(tidyverse)
 library(DBI)
-library(odbc)
 library(glue)
 ```
 
@@ -37,7 +36,7 @@ con <- dbConnect(RMySQL::MySQL(),
 
 ## Query
 ```{r}
-movies <- dbGetQuery(con, "SELECT * FROM MOVIE WHERE rated is null LIMIT 2")
+movies <- dbGetQuery(con, "SELECT * FROM MOVIE WHERE rated is null LIMIT 200")
 ```
 
 
